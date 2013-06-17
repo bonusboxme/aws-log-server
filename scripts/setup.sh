@@ -137,6 +137,7 @@ filter {
   grep {
     match => [ "@tags", "warning|warn|error|err|critical|crit|alert|emergency|emerg|panic" ]
     add_tag => [ "mail" ]
+    drop => false
   }
 }
 

@@ -1,0 +1,50 @@
+h1. AWS Log Server
+
+AWS CloudFormation templates for building log server instances.
+
+h2. Software
+
+|_. Name                                        |_. Version                   |
+| "Elasticsearch":http://www.elasticsearch.org/ | 0.90.1                      |
+| "Logstash":http://logstash.net/               | 1.1.12                      |
+| "Grok":https://github.com/jordansissel/grok   | Master branch               |
+| "Kibana 3":http://three.kibana.org/           | Master branch               |
+| "Nginx":http://nginx.org/                     | Latest from RPM repositiory |
+
+h2. Parameters
+
+|_. Name       |_. Description                                        |_. Default         |
+| KeyName      | Name of an existing EC2 KeyPair to enable SSH access | ssh-ec2-instances |
+| NodeName     | Name of the elasticsearch node                       | Lucky Luke        |
+| ServerName   | DNS name for the Kibana frontend                     | kibana.domain.com |
+| InstanceType | A valid EC2 instance type                            | m1.small          |
+| VolumeSize   | Volume size for each EBS volume in GB                | 10GB              |
+| AccessFrom   | Restrict instance access to this address             | 0.0.0.0/0         |
+| TopicEmail   | The email to which critical errors should be sent    |                   |
+
+For VPC instances there are two more parameters.
+
+|_. Name       |_. Description                                                      |
+| VpcId        | VpcId of your existing Virtual Private Cloud (VPC)                 |
+| SubnetId     | SubnetId of an existing subnet in your Virtual Private Cloud (VPC) |
+
+h2. Security
+
+The template creates also a security group for the log server instance. The group has the following inbound connections enabled.
+
+|_. Protocol |_. Port |_. Range                    |_. Service     |_. Description                     |
+| TCP        | 22     | The value for @AccessFrom@ | SSH           | SSH access                        |
+| TCP        | 80     | The value for @AccessFrom@ | HTTP          | To access the Kibana3 frontend    |
+| TCP        | 5544   | The value for @AccessFrom@ | Logstash      | To send log messages via Rsyslog  |
+| TCP        | 12201  | The value for @AccessFrom@ | Logstash      | To send log messages via Gelf     |
+| TCP        | 9200   | The value for @AccessFrom@ | Elasticsearch | To send log messages via Logstash |
+
+The single access permissions should be changed after the instance has been created. The initial settings are only available, to restrict the access to a secure network, during instance initialization.
+
+h2. Logging
+
+The template creates a log file for the setup. If something goes wrong then disable the *Rollback on Failure* option in the *Advanced options*. Then look at the file @/var/log/setup.log@ for reasons why the creation failed.
+
+h2. License
+
+This project is Open Source and released under the terms of the New BSD License.

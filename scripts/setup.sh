@@ -289,3 +289,6 @@ echo "#################################################################"
 /etc/init.d/elasticsearch start
 /etc/init.d/logstash start
 /etc/init.d/rsyslog restart
+chkconfig nginx on
+chkconfig logstash on
+chkconfig elasticsearch on

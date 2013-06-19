@@ -66,16 +66,6 @@ path.logs: /var/log/elasticsearch
 EOF
 
 echo "#################################################################"
-echo "## Install grok                                                  "
-echo "#################################################################"
-git clone https://github.com/jordansissel/grok.git --depth=1 setup-grok
-cd setup-grok
-make
-make install
-cd ..
-rm -rf setup-grok
-
-echo "#################################################################"
 echo "## Install logstash                                              "
 echo "#################################################################"
 git clone https://github.com/dephub/logstash-rpm.git --depth=1 setup-logstash

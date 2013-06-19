@@ -7,7 +7,6 @@ h2. Software
 |_. Name                                        |_. Version                   |
 | "Elasticsearch":http://www.elasticsearch.org/ | 0.90.1                      |
 | "Logstash":http://logstash.net/               | 1.1.12                      |
-| "Grok":https://github.com/jordansissel/grok   | Master branch               |
 | "Kibana 3":http://three.kibana.org/           | Master branch               |
 | "Nginx":http://nginx.org/                     | Latest from RPM repositiory |
 

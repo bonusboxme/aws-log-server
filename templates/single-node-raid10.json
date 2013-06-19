@@ -180,15 +180,15 @@
 						"CidrIp": { "Ref": "AccessFrom" }
 					},
 					{
-						"IpProtocol": "tcp",
-						"FromPort": "9200",
-						"ToPort": "9200",
+						"IpProtocol": "udp",
+						"FromPort": "5544",
+						"ToPort": "5544",
 						"CidrIp": { "Ref": "AccessFrom" }
 					},
 					{
 						"IpProtocol": "tcp",
-						"FromPort": "12201",
-						"ToPort": "12201",
+						"FromPort": "9200",
+						"ToPort": "9200",
 						"CidrIp": { "Ref": "AccessFrom" }
 					}
 				]

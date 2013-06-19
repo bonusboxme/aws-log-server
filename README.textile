@@ -35,8 +35,8 @@ The template creates also a security group for the log server instance. The grou
 |_. Protocol |_. Port |_. Range                    |_. Service     |_. Description                     |
 | TCP        | 22     | The value for @AccessFrom@ | SSH           | SSH access                        |
 | TCP        | 80     | The value for @AccessFrom@ | HTTP          | To access the Kibana3 frontend    |
-| TCP        | 5544   | The value for @AccessFrom@ | Logstash      | To send log messages via Rsyslog  |
-| TCP        | 12201  | The value for @AccessFrom@ | Logstash      | To send log messages via Gelf     |
+| TCP        | 5544   | The value for @AccessFrom@ | Logstash      | To send log messages via Syslog   |
+| UDP        | 5544   | The value for @AccessFrom@ | Logstash      | To send log messages via Syslog   |
 | TCP        | 9200   | The value for @AccessFrom@ | Elasticsearch | To send log messages via Logstash |
 
 The single access permissions should be changed after the instance has been created. The initial settings are only available, to restrict the access to a secure network, during instance initialization.

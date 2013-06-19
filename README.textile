@@ -44,6 +44,10 @@ h2. Logging
 
 The template creates a log file for the setup. If something goes wrong then disable the *Rollback on Failure* option in the *Advanced options*. Then look at the file @/var/log/setup.log@ for reasons why the creation failed.
 
+h2. Additional configurations
+
+See the "wiki":https://github.com/dephub/aws-log-server/wiki for additional logstash configurations.
+
 h2. License
 
 This project is Open Source and released under the terms of the New BSD License.

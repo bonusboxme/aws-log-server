@@ -78,7 +78,7 @@ rpmbuild -bb rpmbuild/SPECS/logstash.spec
 yum -y install rpmbuild/RPMS/noarch/logstash-1.1.12-1.amzn1.noarch.rpm
 rm -rf setup-logstash rpmbuild
 
-cat <<EOF > /etc/logstash/syslog.conf
+cat <<EOF > /etc/logstash/00_syslog.conf
 input {
   tcp {
     port => 5544
@@ -209,7 +209,9 @@ filter {
     drop => false
   }
 }
+EOF
 
+cat <<EOF > /etc/logstash/99_output.conf
 output {
   elasticsearch_http {
     host => "127.0.0.1"
@@ -225,7 +227,6 @@ output {
   }
 }
 EOF
-
 
 
 echo "#################################################################"

@@ -62,7 +62,8 @@
                 },
 
                 "RegionImageZone": {
-                        "us-east-1": { "PV64": "ami-05355a6c" }
+                        "us-east-1": { "PV64": "ami-05355a6c" },
+                        "sa-east-1": { "PV64": "ami-c99130d4" }
                 }
         },
 

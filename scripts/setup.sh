@@ -245,7 +245,9 @@ EOF
 echo "#################################################################"
 echo "## Install Kibana                                                "
 echo "#################################################################"
-git clone https://github.com/elasticsearch/kibana.git --depth=1 /usr/share/kibana3
+wget http://download.elasticsearch.org/kibana/kibana/kibana-latest.zip
+unzip kibana-latest.zip -d /usr/share/
+mv /usr/share/kibana-latest /usr/share/kibana3
 
 ## Set correct port for kibana
 sed -i "s/9200/80/g" /usr/share/kibana3/config.js

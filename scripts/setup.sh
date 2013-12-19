@@ -245,9 +245,8 @@ EOF
 echo "#################################################################"
 echo "## Install Kibana                                                "
 echo "#################################################################"
-wget http://download.elasticsearch.org/kibana/kibana/kibana-latest.zip
-unzip kibana-latest.zip -d /usr/share/
-mv /usr/share/kibana-latest /usr/share/kibana3
+wget http://download.elasticsearch.org/kibana/kibana/kibana-latest.tar.gz
+tar xf kibana-latest.tar.gz -C /usr/share/
 
 ## Set correct port for kibana
 sed -i "s/9200/80/g" /usr/share/kibana3/config.js
@@ -261,7 +260,7 @@ server {
   access_log            /var/log/nginx/${SERVER_NAME}.access.log;
 
   location / {
-    root  /usr/share/kibana3;
+    root  /usr/share/kibana-latest;
     index  index.html  index.htm;
   }
 

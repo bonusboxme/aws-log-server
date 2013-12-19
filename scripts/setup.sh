@@ -68,7 +68,7 @@ EOF
 echo "#################################################################"
 echo "## Install logstash                                              "
 echo "#################################################################"
-git clone https://github.com/schup/logstash-rpm --depth=1 setup-logstash
+git clone https://github.com/bonusboxme/logstash-rpm --depth=1 setup-logstash
 
 rpmdev-setuptree
 cp -r setup-logstash/SPECS/* rpmbuild/SPECS/

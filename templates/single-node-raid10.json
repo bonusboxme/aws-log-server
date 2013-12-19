@@ -7,7 +7,7 @@
         "KeyName": {
             "Description": "Name of an existing EC2 KeyPair to enable SSH access",
             "Type": "String",
-            "Default": "ssh-ec2-instances"
+            "Default": "ec2_bonusbox"
         },
 
         "NodeName": {
@@ -19,13 +19,13 @@
         "ServerName": {
             "Description": "DNS name for the Kibana frontend",
             "Type": "String",
-            "Default": "kibana.domain.com"
+            "Default": "kibana.aws.bonusbox.me"
         },
 
         "HostedZoneName": {
             "Description": "DNS zone name for DNS entry",
             "Type": "String",
-            "Default": "domain.com."
+            "Default": "aws.bonusbox.me."
         },
 
         "InstanceType": {

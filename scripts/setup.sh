@@ -88,6 +88,9 @@ input {
     port => 5544
     type => syslog
   }
+  udp {
+    port => 5545
+  }
 }
 
 filter {

@@ -1,353 +1,383 @@
 {
-        "AWSTemplateFormatVersion": "2010-09-09",
+    "AWSTemplateFormatVersion": "2010-09-09",
 
-        "Description": "Single node log server deployment with a RAID10 storage configuration",
+    "Description": "Single node log server deployment with a RAID10 storage configuration",
 
-        "Parameters": {
-                "KeyName": {
-                        "Description": "Name of an existing EC2 KeyPair to enable SSH access",
-                        "Type": "String",
-                        "Default": "ssh-ec2-instances"
-                },
-
-                "NodeName": {
-                        "Description": "Name of the elasticsearch node",
-                        "Type": "String",
-                        "Default": "Lucky Luke"
-                },
-
-                "ServerName": {
-                        "Description": "DNS name for the Kibana frontend",
-                        "Type": "String",
-                        "Default": "kibana.domain.com"
-                },
-
-                "InstanceType": {
-                        "Description": "A valid EC2 instance type",
-                        "Type": "String",
-                        "Default": "m1.small",
-                        "AllowedValues": [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge" ],
-                        "ConstraintDescription": "must be a valid EC2 instance type."
-                },
-
-                "VolumeSize": {
-                        "Description": "Volume size for each EBS volume in GB",
-                        "Type": "Number",
-                        "Default": "10"
-                },
-
-                "AccessFrom": {
-                        "Description": "Restrict instance access to this address(Can be changed later in Security Groups)",
-                        "Type": "String",
-                        "MinLength": "9",
-                        "MaxLength": "18",
-                        "Default": "0.0.0.0/0",
-                        "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
-                        "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
-                },
-
-                "TopicEmail": {
-                        "Description": "The email to which critical errors should be sent",
-                        "Type": "String"
-                }
+    "Parameters": {
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access",
+            "Type": "String",
+            "Default": "ssh-ec2-instances"
         },
 
-        "Mappings": {
-                "InstanceTypeArch": {
-                        "t1.micro" : { "Arch": "PV64" },
-                        "m1.small" : { "Arch": "PV64" },
-                        "m1.medium": { "Arch": "PV64" },
-                        "m1.large" : { "Arch": "PV64" },
-                        "m1.xlarge": { "Arch": "PV64" }
-                },
-
-                "RegionImageZone": {
-                        "us-east-1": { "PV64": "ami-05355a6c" },
-                        "sa-east-1": { "PV64": "ami-c99130d4" }
-                }
+        "NodeName": {
+            "Description": "Name of the elasticsearch node",
+            "Type": "String",
+            "Default": "Lucky Luke"
         },
 
-        "Resources": {
-                "Ec2Instance": {
-                        "Type": "AWS::EC2::Instance",
-                        "Metadata": {
-                                "AWS::CloudFormation::Init": {
-                                        "config": {
-                                                "packages": {
-                                                        "yum": {
-                                                                "mdadm": [],
-                                                                "sysstat": [],
-                                                                "rpm-build": [],
-                                                                "rpmdevtools": [],
-                                                                "git": [],
-                                                                "nginx": []
-                                                        }
-                                                }
-                                        }
-                                }
-                        },
-
-                        "Properties": {
-                                "InstanceType": { "Ref": "InstanceType" },
-                                "ImageId": { "Fn::FindInMap": [ "RegionImageZone", { "Ref": "AWS::Region" }, { "Fn::FindInMap": [ "InstanceTypeArch", { "Ref": "InstanceType" }, "Arch" ] } ] },
-                                "SecurityGroups": [ { "Ref": "Ec2SecurityGroup" } ],
-                                "KeyName": { "Ref": "KeyName" },
-                                "UserData": {
-                                        "Fn::Base64": {
-                                                "Fn::Join": ["", [
-                                                        "#!/bin/bash\n",
-                                                        "#################################################################\n",
-                                                        "## Init setup\n",
-                                                        "#################################################################\n",
-                                                        "yum update -y aws-cfn-bootstrap\n",
-
-                                                        "## Error reporting helper function\n",
-                                                        "function error_exit\n",
-                                                        "{\n",
-                                                        "   /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", {
-                                                                "Ref": "WaitHandleEc2Instance"
-                                                        }, "'\n",
-                                                        "   exit 1\n",
-                                                        "}\n",
-
-                                                        "## Initialize CloudFormation bits\n",
-                                                        "/opt/aws/bin/cfn-init -v -s ", {
-                                                                "Ref": "AWS::StackName"
-                                                        }, " -r Ec2Instance",
-                                                        "   --region ", {
-                                                                "Ref": "AWS::Region"
-                                                        }, " > /tmp/cfn-init.log 2>&1 || error_exit $(</tmp/cfn-init.log)\n",
-
-                                                        "#################################################################\n",
-                                                        "## Setup instance\n",
-                                                        "#################################################################\n",
-                                                        "git clone https://github.com/bonusbox/aws-log-server.git setup-script\n",
-                                                        "chmod 755 ./setup-script/scripts/setup.sh\n",
-                                                        "cat <<EOF > ./setup-script/scripts/vars.sh\n",
-                                                        "#!/bin/sh\n",
-                                                        "REGION=\"", { "Ref": "AWS::Region" }, "\"\n",
-                                                        "NODE_NAME=\"", { "Ref": "NodeName" }, "\"\n",
-                                                        "SERVER_NAME=\"", { "Ref": "ServerName" }, "\"\n",
-                                                        "SNS_TOPIC=\"", { "Ref": "SNSTopic" }, "\"\n",
-                                                        "SNS_ACCESS_KEY_ID=\"", { "Ref": "SNSPublishKey" }, "\"\n",
-                                                        "SNS_SECRET_ACCESS_KEY=\"", {"Fn::GetAtt": ["SNSPublishKey", "SecretAccessKey"]}, "\"\n",
-                                                        "EOF\n",
-
-                                                        "./setup-script/scripts/setup.sh > /var/log/setup.log 2>&1\n",
-                                                        "rm -rf setup-script\n",
-
-                                                        "#################################################################\n",
-                                                        "## CloudFormation signal that setup is complete\n",
-                                                        "#################################################################\n",
-                                                        "/opt/aws/bin/cfn-signal -e 0 -r \"Ec2Instance setup complete\" '", {
-                                                                "Ref": "WaitHandleEc2Instance"
-                                                        }, "'\n"
-                                                ] ]
-                                        }
-                                }
-                        }
-                },
-
-                "Ec2SecurityGroup": {
-                        "Type": "AWS::EC2::SecurityGroup",
-                        "Properties": {
-                                "GroupDescription": "Elasticsearch Security Group",
-                                "SecurityGroupIngress": [
-                                        {
-                                                "IpProtocol": "tcp",
-                                                "FromPort": "22",
-                                                "ToPort": "22",
-                                                "CidrIp": { "Ref": "AccessFrom" }
-                                        },
-                                        {
-                                                "IpProtocol": "tcp",
-                                                "FromPort": "80",
-                                                "ToPort": "80",
-                                                "CidrIp": { "Ref": "AccessFrom" }
-                                        },
-                                        {
-                                                "IpProtocol": "tcp",
-                                                "FromPort": "5544",
-                                                "ToPort": "5544",
-                                                "CidrIp": { "Ref": "AccessFrom" }
-                                        },
-                                        {
-                                                "IpProtocol": "udp",
-                                                "FromPort": "5544",
-                                                "ToPort": "5544",
-                                                "CidrIp": { "Ref": "AccessFrom" }
-                                        },
-                                        {
-                                                "IpProtocol": "tcp",
-                                                "FromPort": "9200",
-                                                "ToPort": "9200",
-                                                "CidrIp": { "Ref": "AccessFrom" }
-                                        }
-                                ]
-                        }
-                },
-
-                "SNSTopic": {
-                        "Type": "AWS::SNS::Topic",
-                        "Properties": {
-                                "DisplayName": "log-server",
-                                "Subscription": [
-                                        { "Endpoint": { "Ref": "TopicEmail" }, "Protocol": "email" }
-                                ]
-                        }
-                },
-
-                "SNSPublishUser": {
-                        "Type": "AWS::IAM::User",
-                        "Properties": {
-                                "Policies": [
-                                        {
-                                                "PolicyName": "SNSPublishPolicy",
-                                                "PolicyDocument": {
-                                                        "Statement": [
-                                                                {
-                                                                        "Effect": "Allow",
-                                                                        "Action": [ "sns:Publish" ],
-                                                                        "Resource": { "Ref": "SNSTopic" }
-                                                                }
-                                                        ]
-                                                }
-                                        }
-                                ]
-                        }
-                },
-
-                "SNSPublishKey": {
-                        "Type": "AWS::IAM::AccessKey",
-                        "Properties": {
-                                "Status": "Active",
-                                "UserName": {"Ref": "SNSPublishUser"}
-                        }
-                },
-
-                "Ec2Volume1": {
-                        "Type": "AWS::EC2::Volume",
-                        "Properties": {
-                                "Size": {
-                                        "Ref": "VolumeSize"
-                                },
-                                "AvailabilityZone": {
-                                        "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
-                                }
-                        }
-                },
-
-                "Ec2Volume2": {
-                        "Type": "AWS::EC2::Volume",
-                        "Properties": {
-                                "Size": {
-                                        "Ref": "VolumeSize"
-                                },
-                                "AvailabilityZone": {
-                                        "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
-                                }
-                        }
-                },
-
-                "Ec2Volume3": {
-                        "Type": "AWS::EC2::Volume",
-                        "Properties": {
-                                "Size": {
-                                        "Ref": "VolumeSize"
-                                },
-                                "AvailabilityZone": {
-                                        "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
-                                }
-                        }
-                },
-
-                "Ec2Volume4": {
-                        "Type": "AWS::EC2::Volume",
-                        "Properties": {
-                                "Size": {
-                                        "Ref": "VolumeSize"
-                                },
-                                "AvailabilityZone": {
-                                        "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
-                                }
-                        }
-                },
-
-                "Ec2VolumeMount1": {
-                        "Type": "AWS::EC2::VolumeAttachment",
-                        "Properties": {
-                                "InstanceId": {
-                                        "Ref": "Ec2Instance"
-                                },
-                                "VolumeId": {
-                                        "Ref": "Ec2Volume1"
-                                },
-                                "Device": "/dev/sdh1"
-                        }
-                },
-
-                "Ec2VolumeMount2": {
-                        "Type": "AWS::EC2::VolumeAttachment",
-                        "Properties": {
-                                "InstanceId": {
-                                        "Ref": "Ec2Instance"
-                                },
-                                "VolumeId": {
-                                        "Ref": "Ec2Volume2"
-                                },
-                                "Device": "/dev/sdh2"
-                        }
-                },
-
-                "Ec2VolumeMount3": {
-                        "Type": "AWS::EC2::VolumeAttachment",
-                        "Properties": {
-                                "InstanceId": {
-                                        "Ref": "Ec2Instance"
-                                },
-                                "VolumeId": {
-                                        "Ref": "Ec2Volume3"
-                                },
-                                "Device": "/dev/sdh3"
-                        }
-                },
-
-                "Ec2VolumeMount4": {
-                        "Type": "AWS::EC2::VolumeAttachment",
-                        "Properties": {
-                                "InstanceId": {
-                                        "Ref": "Ec2Instance"
-                                },
-                                "VolumeId": {
-                                        "Ref": "Ec2Volume4"
-                                },
-                                "Device": "/dev/sdh4"
-                        }
-                },
-
-                "WaitHandleEc2Instance": {
-                        "Type": "AWS::CloudFormation::WaitConditionHandle",
-                        "Properties": {}
-                },
-
-                "WaitConditionEc2Instance": {
-                        "Type": "AWS::CloudFormation::WaitCondition",
-                        "DependsOn": "Ec2Instance",
-                        "Properties": {
-                                "Handle": {
-                                        "Ref": "WaitHandleEc2Instance"
-                                },
-                                "Timeout": "300"
-                        }
-                }
+        "ServerName": {
+            "Description": "DNS name for the Kibana frontend",
+            "Type": "String",
+            "Default": "kibana.domain.com"
         },
 
-        "Outputs": {
-                "InstanceName": {
-                        "Value": {
-                                "Fn::GetAtt": [ "Ec2Instance", "PublicDnsName" ]
-                        },
-                        "Description": "public DNS name of the new Ec2Instance"
-                }
+        "HostedZoneName": {
+            "Description": "DNS zone name for DNS entry",
+            "Type": "String",
+            "Default": "domain.com."
+        },
+
+        "InstanceType": {
+            "Description": "A valid EC2 instance type",
+            "Type": "String",
+            "Default": "m1.small",
+            "AllowedValues": [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge" ],
+            "ConstraintDescription": "must be a valid EC2 instance type."
+        },
+
+        "VolumeSize": {
+            "Description": "Volume size for each EBS volume in GB",
+            "Type": "Number",
+            "Default": "10"
+        },
+
+        "AccessFrom": {
+            "Description": "Restrict instance access to this address(Can be changed later in Security Groups)",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "0.0.0.0/0",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
+        },
+
+        "TopicEmail": {
+            "Description": "The email to which critical errors should be sent",
+            "Type": "String"
         }
+    },
+
+    "Mappings": {
+        "InstanceTypeArch": {
+            "t1.micro" : { "Arch": "PV64" },
+            "m1.small" : { "Arch": "PV64" },
+            "m1.medium": { "Arch": "PV64" },
+            "m1.large" : { "Arch": "PV64" },
+            "m1.xlarge": { "Arch": "PV64" }
+        },
+
+        "RegionImageZone": {
+            "us-east-1": { "PV64": "ami-05355a6c" },
+            "sa-east-1": { "PV64": "ami-c99130d4" }
+        }
+    },
+
+    "Resources": {
+        "Ec2Instance": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "packages": {
+                            "yum": {
+                                "mdadm": [],
+                                "sysstat": [],
+                                "rpm-build": [],
+                                "rpmdevtools": [],
+                                "git": [],
+                                "nginx": []
+                            }
+                        }
+                    }
+                }
+            },
+
+            "Properties": {
+                "InstanceType": { "Ref": "InstanceType" },
+                "ImageId": { "Fn::FindInMap": [ "RegionImageZone", { "Ref": "AWS::Region" }, { "Fn::FindInMap": [ "InstanceTypeArch", { "Ref": "InstanceType" }, "Arch" ] } ] },
+                "SecurityGroups": [ { "Ref": "Ec2SecurityGroup" } ],
+                "KeyName": { "Ref": "KeyName" },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": ["", [
+                            "#!/bin/bash\n",
+                            "#################################################################\n",
+                            "## Init setup\n",
+                            "#################################################################\n",
+                            "yum update -y aws-cfn-bootstrap\n",
+
+                            "mkdir /home/ec2-user/.ssh && chown ec2-user /home/ec2-user/.ssh\n",
+                            "echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDFHKbIyBlFN1E/KqM7aF6KZvCGQVHR42q7tfq5MVBaAnkKCD+gf53ZSCfyhonc+DnGoKoJOyariGI6DmzefcZuhUGfZ1L+0fxA2JCQW/TIroh9Gpze30UQZmegbHcBU0oyKbNH4oxqitP92e1b2H1Iy5W11CPfGdv9mkU2QWS9VLXGqhlVSr676aGutM8fvOWu7bx+UdJsJkVroTxBAHg+GQf2SxR7FAH9+0FJnDtPXgmnw2u1qauPzF0fd3hJDMqHjd5vLHvpFlcnx+5rMy8yp9MLt6aOyRdGOGvWpMStiavoZ/wbmyOL26QxyMeHkxCIhWVXjkDs8SnXRTEJcJtXeKdrk4RsHGJofnYj1q2J3gHfp+Amj5Lg0Hw7WjQmLB4kUNho0oGwzlD6+8mH66s02BKc+16LLJ1flNel1ekQeriiI+6bJyfeZd0HKH2fY64jDA+zmvBNJyUVQjg4mLkON+RluZY9f29ukve76bjpTR+sPDOaOE6UYuA9LM3h4LcO4lHumFV0QSLrUGq6K76n2PFmFM1uYV8R++JrQf9jMe3oxmOF3N1bi/tVrBFkZnCDtVY4ciHdqxIxi+mcTqk2Gc5dvD76Kl4JUMg/jJQUuBWjENkjvtHYGTpkkPLS3jTPhLGeSYbJD5KrSl0NPKBUfu8CyjSEIeSLVMA8s/EAUQ==' > /home/ec2-user/.ssh/authorized_keys\n",
+                            "## Error reporting helper function\n",
+                            "function error_exit\n",
+                            "{\n",
+                            "   /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", {
+                                "Ref": "WaitHandleEc2Instance"
+                            }, "'\n",
+                            "   exit 1\n",
+                            "}\n",
+
+                            "## Initialize CloudFormation bits\n",
+                            "/opt/aws/bin/cfn-init -v -s ", {
+                                "Ref": "AWS::StackName"
+                            }, " -r Ec2Instance",
+                            "   --region ", {
+                                "Ref": "AWS::Region"
+                            }, " > /tmp/cfn-init.log 2>&1 || error_exit $(</tmp/cfn-init.log)\n",
+
+                            "#################################################################\n",
+                            "## Setup instance\n",
+                            "#################################################################\n",
+                            "git clone https://github.com/bonusboxme/aws-log-server.git setup-script\n",
+                            "chmod 755 ./setup-script/scripts/setup.sh\n",
+                            "cat <<EOF > ./setup-script/scripts/vars.sh\n",
+                            "#!/bin/sh\n",
+                            "REGION=\"", { "Ref": "AWS::Region" }, "\"\n",
+                            "NODE_NAME=\"", { "Ref": "NodeName" }, "\"\n",
+                            "SERVER_NAME=\"", { "Ref": "ServerName" }, "\"\n",
+                            "SNS_TOPIC=\"", { "Ref": "SNSTopic" }, "\"\n",
+                            "SNS_ACCESS_KEY_ID=\"", { "Ref": "SNSPublishKey" }, "\"\n",
+                            "SNS_SECRET_ACCESS_KEY=\"", {"Fn::GetAtt": ["SNSPublishKey", "SecretAccessKey"]}, "\"\n",
+                            "EOF\n",
+
+                            "./setup-script/scripts/setup.sh > /var/log/setup.log 2>&1\n",
+                            "rm -rf setup-script\n",
+
+                            "#################################################################\n",
+                            "## CloudFormation signal that setup is complete\n",
+                            "#################################################################\n",
+                            "/opt/aws/bin/cfn-signal -e 0 -r \"Ec2Instance setup complete\" '", {
+                                "Ref": "WaitHandleEc2Instance"
+                            }, "'\n"
+                        ] ]
+                    }
+                }
+            }
+        },
+
+        "Ec2SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Elasticsearch Security Group",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": { "Ref": "AccessFrom" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": { "Ref": "AccessFrom" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "5544",
+                        "ToPort": "5544",
+                        "CidrIp": { "Ref": "AccessFrom" }
+                    },
+                    {
+                        "IpProtocol": "udp",
+                        "FromPort": "5544",
+                        "ToPort": "5544",
+                        "CidrIp": { "Ref": "AccessFrom" }
+                    },
+                    {
+                        "IpProtocol": "udp",
+                        "FromPort": "5545",
+                        "ToPort": "5545",
+                        "CidrIp": { "Ref": "AccessFrom" }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "9200",
+                        "ToPort": "9200",
+                        "CidrIp": { "Ref": "AccessFrom" }
+                    }
+                ]
+            }
+        },
+
+        "SNSTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "DisplayName": "log-server",
+                "Subscription": [
+                    { "Endpoint": { "Ref": "TopicEmail" }, "Protocol": "email" }
+                ]
+            }
+        },
+
+        "SNSPublishUser": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Policies": [
+                    {
+                        "PolicyName": "SNSPublishPolicy",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [ "sns:Publish" ],
+                                    "Resource": { "Ref": "SNSTopic" }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+
+        "SNSPublishKey": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "Status": "Active",
+                "UserName": {"Ref": "SNSPublishUser"}
+            }
+        },
+
+        "Ec2Volume1": {
+            "Type": "AWS::EC2::Volume",
+            "Properties": {
+                "Size": {
+                    "Ref": "VolumeSize"
+                },
+                "AvailabilityZone": {
+                    "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
+                }
+            }
+        },
+
+        "Ec2Volume2": {
+            "Type": "AWS::EC2::Volume",
+            "Properties": {
+                "Size": {
+                    "Ref": "VolumeSize"
+                },
+                "AvailabilityZone": {
+                    "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
+                }
+            }
+        },
+
+        "Ec2Volume3": {
+            "Type": "AWS::EC2::Volume",
+            "Properties": {
+                "Size": {
+                    "Ref": "VolumeSize"
+                },
+                "AvailabilityZone": {
+                    "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
+                }
+            }
+        },
+
+        "Ec2Volume4": {
+            "Type": "AWS::EC2::Volume",
+            "Properties": {
+                "Size": {
+                    "Ref": "VolumeSize"
+                },
+                "AvailabilityZone": {
+                    "Fn::GetAtt": [ "Ec2Instance", "AvailabilityZone" ]
+                }
+            }
+        },
+
+        "Ec2VolumeMount1": {
+            "Type": "AWS::EC2::VolumeAttachment",
+            "Properties": {
+                "InstanceId": {
+                    "Ref": "Ec2Instance"
+                },
+                "VolumeId": {
+                    "Ref": "Ec2Volume1"
+                },
+                "Device": "/dev/sdh1"
+            }
+        },
+
+        "Ec2VolumeMount2": {
+            "Type": "AWS::EC2::VolumeAttachment",
+            "Properties": {
+                "InstanceId": {
+                    "Ref": "Ec2Instance"
+                },
+                "VolumeId": {
+                    "Ref": "Ec2Volume2"
+                },
+                "Device": "/dev/sdh2"
+            }
+        },
+
+        "Ec2VolumeMount3": {
+            "Type": "AWS::EC2::VolumeAttachment",
+            "Properties": {
+                "InstanceId": {
+                    "Ref": "Ec2Instance"
+                },
+                "VolumeId": {
+                    "Ref": "Ec2Volume3"
+                },
+                "Device": "/dev/sdh3"
+            }
+        },
+
+        "Ec2VolumeMount4": {
+            "Type": "AWS::EC2::VolumeAttachment",
+            "Properties": {
+                "InstanceId": {
+                    "Ref": "Ec2Instance"
+                },
+                "VolumeId": {
+                    "Ref": "Ec2Volume4"
+                },
+                "Device": "/dev/sdh4"
+            }
+        },
+
+        "WaitHandleEc2Instance": {
+            "Type": "AWS::CloudFormation::WaitConditionHandle",
+            "Properties": {}
+        },
+
+        "WaitConditionEc2Instance": {
+            "Type": "AWS::CloudFormation::WaitCondition",
+            "DependsOn": "Ec2Instance",
+            "Properties": {
+                "Handle": {
+                    "Ref": "WaitHandleEc2Instance"
+                },
+                "Timeout": "300"
+            }
+        },
+
+        "DNSEntry" : {
+            "Type" : "AWS::Route53::RecordSet",
+            "Properties" : {
+                "HostedZoneName" : { "Ref": "HostedZoneName" },
+                "Comment" : "Kibana frontend",
+                "Name" : { "Ref": "ServerName" },
+                "Type" : "CNAME",
+                "TTL" : "300",
+                "ResourceRecords" : [
+                    {
+                        "Fn::GetAtt": [ "Ec2Instance", "PublicDnsName" ]
+                    }
+                ]
+            }
+        }
+    },
+
+    "Outputs": {
+        "InstanceName": {
+            "Value": {
+                "Fn::GetAtt": [ "Ec2Instance", "PublicDnsName" ]
+            },
+            "Description": "public DNS name of the new Ec2Instance"
+        }
+    }
 }

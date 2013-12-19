@@ -68,14 +68,15 @@ EOF
 echo "#################################################################"
 echo "## Install logstash                                              "
 echo "#################################################################"
-git clone https://github.com/dephub/logstash-rpm.git --depth=1 setup-logstash
+git clone https://github.com/schup/logstash-rpm --depth=1 setup-logstash
+
 rpmdev-setuptree
 cp -r setup-logstash/SPECS/* rpmbuild/SPECS/
 cp -r setup-logstash/SOURCES/* rpmbuild/SOURCES/
 spectool -g rpmbuild/SPECS/logstash.spec
-mv logstash-1.1.12-flatjar.jar rpmbuild/SOURCES/logstash-1.1.12-flatjar.jar
+mv logstash-1.3.1-flatjar.jar rpmbuild/SOURCES/logstash-1.3.1-flatjar.jar
 rpmbuild -bb rpmbuild/SPECS/logstash.spec
-yum -y install rpmbuild/RPMS/noarch/logstash-1.1.12-1.amzn1.noarch.rpm
+yum -y install rpmbuild/RPMS/noarch/logstash-1.3.1-1.amzn1.noarch.rpm
 rm -rf setup-logstash rpmbuild
 
 cat <<EOF > /etc/logstash/00_syslog.conf
@@ -210,6 +211,10 @@ filter {
     match => [ "@tags", "warning|warn|error|err|critical|crit|alert|emergency|emerg|panic" ]
     add_tag => [ "mail" ]
     drop => false
+  }
+
+  json {
+    source => "message"
   }
 }
 EOF

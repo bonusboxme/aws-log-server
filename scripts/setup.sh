@@ -261,6 +261,10 @@ tar xf kibana-latest.tar.gz -C /usr/share/
 ## Set correct port for kibana
 sed -i "s/9200/80/g" /usr/share/kibana3/config.js
 
+printf "admin:$(openssl passwd -1 $KIBANA_PASSWORD)\n" > /etc/nginx/kibana.htpasswd
+chown root:nobody /etc/nginx/kibana.htpasswd
+chmod 644 /etc/nginx/kibana.htpasswd
+
 ## Create virtual host
 cat <<EOF > /etc/nginx/conf.d/kibana3.conf
 server {
@@ -272,23 +276,33 @@ server {
   location / {
     root  /usr/share/kibana-latest;
     index  index.html  index.htm;
+    auth_basic            "Restricted";
+    auth_basic_user_file  /etc/nginx/kibana.htpasswd;
   }
 
   location ~ ^/_aliases$ {
     proxy_pass http://127.0.0.1:9200;
     proxy_read_timeout 90;
+    auth_basic            "Restricted";
+    auth_basic_user_file  /etc/nginx/kibana.htpasswd;
   }
   location ~ ^/.*/_search$ {
     proxy_pass http://127.0.0.1:9200;
     proxy_read_timeout 90;
+    auth_basic            "Restricted";
+    auth_basic_user_file  /etc/nginx/kibana.htpasswd;
   }
   location ~ ^/kibana-int/dashboard/.*$ {
     proxy_pass http://127.0.0.1:9200;
     proxy_read_timeout 90;
+    auth_basic            "Restricted";
+    auth_basic_user_file  /etc/nginx/kibana.htpasswd;
   }
   location ~ ^/kibana-int/temp.*$ {
     proxy_pass http://127.0.0.1:9200;
     proxy_read_timeout 90;
+    auth_basic            "Restricted";
+    auth_basic_user_file  /etc/nginx/kibana.htpasswd;
   }
 }
 EOF

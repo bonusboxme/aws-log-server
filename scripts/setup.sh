@@ -90,6 +90,7 @@ input {
     type => syslog
   }
   udp {
+    type => "railsjson"
     port => 5545
   }
 }
@@ -214,6 +215,7 @@ filter {
   }
 
   json {
+    type => "railsjson"
     source => "message"
   }
 }
@@ -225,14 +227,14 @@ output {
     host => "127.0.0.1"
     flush_size => 1
   }
-  sns {
-    access_key_id => "${SNS_ACCESS_KEY_ID}"
-    secret_access_key => "${SNS_SECRET_ACCESS_KEY}"
-    arn => "${SNS_TOPIC}"
-    publish_boot_message_arn => "${SNS_TOPIC}"
-    region => "${REGION}"
-    tags => [ "mail" ]
-  }
+  #sns {
+  #  access_key_id => "${SNS_ACCESS_KEY_ID}"
+  #  secret_access_key => "${SNS_SECRET_ACCESS_KEY}"
+  #  arn => "${SNS_TOPIC}"
+  #  publish_boot_message_arn => "${SNS_TOPIC}"
+  #  region => "${REGION}"
+  #  tags => [ "mail" ]
+  #}
 }
 EOF
 
